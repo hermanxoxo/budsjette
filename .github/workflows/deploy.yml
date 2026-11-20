@@ -44,6 +44,10 @@ jobs:
         run: npm run build
         env:
           VITE_BASE: /${{ github.event.repository.name }}/
+          # Synkronisering (valgfritt). Settes under Settings → Secrets and variables → Actions → Variables.
+          # Begge verdiene er offentlige; tilgangen styres av innlogging og RLS i Supabase.
+          VITE_SUPABASE_URL: ${{ vars.SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ vars.SUPABASE_ANON_KEY }}
 
       - name: Last opp artefakt
         uses: actions/upload-pages-artifact@v3

@@ -30,6 +30,8 @@ import { ConfirmDialog, Sheet } from '@/ui/Sheet';
 import { AmountField } from '@/ui/inputs';
 import { Badge, Button, Field, IconButton, SectionHeading, Segmented, Switch, cx } from '@/ui/primitives';
 import { useToast } from '@/ui/Toast';
+import { useCloudSync } from '@/state/CloudSync';
+import { SyncPanel } from './SyncPanel';
 
 const THEME_OPTIONS: { value: ThemePreference; label: string; icon: typeof Sun }[] = [
   { value: 'light', label: 'Lys', icon: Sun },
@@ -40,6 +42,8 @@ const THEME_OPTIONS: { value: ThemePreference; label: string; icon: typeof Sun }
 export function SettingsSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { data, dispatch, adapter, saveError, flush } = useAppStore();
   const toast = useToast();
+  const sync = useCloudSync();
+  const signedIn = sync.configured && sync.status !== 'signedOut';
   const fileInput = useRef<HTMLInputElement>(null);
 
   const [confirmReset, setConfirmReset] = useState(false);
@@ -227,17 +231,35 @@ export function SettingsSheet({ open, onClose }: { open: boolean; onClose: () =>
             />
           </section>
 
+          {/* Synkronisering */}
+          {sync.configured && (
+            <section>
+              <SectionHeading title="Synkronisering" description="Samme føringer på mobil og PC." />
+              <SyncPanel />
+            </section>
+          )}
+
           {/* Data */}
           <section>
             <SectionHeading title="Data og sikkerhetskopi" />
 
             <div className="mb-3 flex gap-2.5 rounded-xl border border-line bg-surface2 p-3 text-xs leading-relaxed text-muted">
               <Info className="mt-0.5 h-4 w-4 shrink-0 text-accent" aria-hidden />
-              <p>
-                Alt lagres lokalt i <strong className="font-medium text-ink">denne nettleseren</strong>.
-                Data synkroniseres ikke mellom telefon og PC. Sletter du nettleserdata, eller bytter
-                enhet, forsvinner informasjonen. Ta jevnlig sikkerhetskopi med eksport.
-              </p>
+              {signedIn ? (
+                <p>
+                  Dataene lagres i <strong className="font-medium text-ink">denne nettleseren</strong> og
+                  synkroniseres med skyen, slik at de er de samme på alle enhetene der du er logget inn.
+                  Eksport er fortsatt en god ekstra sikkerhetskopi.
+                </p>
+              ) : (
+                <p>
+                  Alt lagres lokalt i <strong className="font-medium text-ink">denne nettleseren</strong>.
+                  Data synkroniseres ikke mellom telefon og PC
+                  {sync.configured ? ' før du logger inn under Synkronisering' : ''}. Sletter du
+                  nettleserdata, eller bytter enhet, forsvinner informasjonen. Ta jevnlig
+                  sikkerhetskopi med eksport.
+                </p>
+              )}
             </div>
 
             <div className="grid grid-cols-2 gap-2">
@@ -292,10 +314,16 @@ export function SettingsSheet({ open, onClose }: { open: boolean; onClose: () =>
                 variant="secondary"
                 fullWidth
                 icon={HardDrive}
+                disabled={signedIn}
                 onClick={() => setConfirmDemo(true)}
               >
                 {data.settings.demoMode ? 'Last demodata på nytt' : 'Fyll med eksempeldata (demo)'}
               </Button>
+              {signedIn && (
+                <p className="px-0.5 text-xs text-faint">
+                  Demodata er slått av mens du er logget inn, så eksempeltall ikke havner i skyen.
+                </p>
+              )}
               <Button variant="secondary" fullWidth icon={Trash2} className="text-danger" onClick={() => setConfirmReset(true)}>
                 Slett alle data
               </Button>
@@ -370,8 +398,14 @@ export function SettingsSheet({ open, onClose }: { open: boolean; onClose: () =>
         open={confirmReset}
         title="Slette alle data?"
         confirmLabel="Slett alt"
-        message="Alle perioder, registreringer, budsjetter og innstillinger slettes permanent fra denne nettleseren. Dette kan ikke angres."
-        onConfirm={() => {
+        message={
+          signedIn
+            ? 'Du logges ut, og alle data slettes fra denne enheten. Dataene i skyen beholdes – logg inn igjen for å hente dem tilbake.'
+            : 'Alle perioder, registreringer, budsjetter og innstillinger slettes permanent fra denne nettleseren. Dette kan ikke angres.'
+        }
+        onConfirm={async () => {
+          // Logg ut først, ellers ville den tomme appen blitt lastet opp og slettet dataene i skyen.
+          if (signedIn) await sync.signOut();
           void adapter.clear();
           dispatch({ type: 'reset', data: createInitialData() });
           setConfirmReset(false);

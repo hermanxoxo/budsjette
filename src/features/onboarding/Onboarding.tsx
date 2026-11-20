@@ -10,6 +10,8 @@ import { useAppStore } from '@/state/AppStore';
 import { CategoryDot } from '@/features/transactions/CategoryPicker';
 import { AmountField, AmountInput, DateInput, Slider } from '@/ui/inputs';
 import { Button, Field, Switch, cx } from '@/ui/primitives';
+import { useCloudSync } from '@/state/CloudSync';
+import { SyncPanel } from '@/features/settings/SyncPanel';
 
 const STEPS = ['Velkommen', 'Lønn', 'Budsjett', 'Start'] as const;
 
@@ -18,6 +20,8 @@ export function Onboarding() {
   const { data, dispatch, resolvedTheme } = useAppStore();
 
   const [step, setStep] = useState(0);
+  const sync = useCloudSync();
+  const [showLogin, setShowLogin] = useState(false);
   const [salaryOre, setSalaryOre] = useState<number | null>(null);
   const [payday, setPayday] = useState(data.settings.payday);
   const [useFixedPayday, setUseFixedPayday] = useState(true);
@@ -106,6 +110,31 @@ export function Onboarding() {
               <Bullet icon={PiggyBank} title="Sparing teller riktig" text="Sparing og gjeld skilles fra ordinært forbruk." />
               <Bullet icon={Check} title="Dataene er dine" text="Alt lagres lokalt i nettleseren. Ingen konto nødvendig." />
             </ul>
+
+            {sync.configured && (
+              <div className="mt-8 rounded-2xl border border-line bg-surface p-4">
+                {sync.status === 'signedOut' && !showLogin ? (
+                  <button
+                    type="button"
+                    onClick={() => setShowLogin(true)}
+                    className="w-full text-left text-sm text-muted"
+                  >
+                    Har du brukt appen på en annen enhet?{' '}
+                    <span className="font-medium text-accent">Logg inn og hent dataene</span>
+                  </button>
+                ) : (
+                  <>
+                    <p className="mb-3 text-sm font-medium text-ink">Hent data fra en annen enhet</p>
+                    <SyncPanel compact />
+                    {sync.status === 'synced' && (
+                      <p className="mt-3 text-xs text-muted">
+                        Fant ingen data i skyen ennå. Fortsett oppsettet, så lastes det opp automatisk.
+                      </p>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
           </div>
         )}
 

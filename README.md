@@ -18,7 +18,7 @@ hostes gratis på GitHub Pages.
 - [Prosjektstruktur](#prosjektstruktur)
 - [Datamodell og regler](#datamodell-og-regler)
 - [Testing](#testing)
-- [Senere: synkronisering med Supabase](#senere-synkronisering-med-supabase)
+- [Synkronisering mellom mobil og PC](#synkronisering-mellom-mobil-og-pc-supabase)
 - [Personvern og sikkerhet](#personvern-og-sikkerhet)
 
 ---
@@ -262,44 +262,62 @@ Testene dekker de kritiske beregningene:
 | `reducer.test.ts` | Registrering, redigering, sletting, ny periode, historiske budsjetter |
 | `recurring.test.ts` | Gjentakelser og idempotent bokføring uten duplikater |
 | `transfer.test.ts` | Eksport/import, validering av ugyldige data, CSV, migrering |
+| `sync.test.ts` | Synk mellom enheter: sammenslåing, sletting, konflikter, duplikater |
 | `app.smoke.test.tsx` | Hele flyten i DOM: onboarding → registrering, budsjett, underkategorier og analyse |
 
 ---
 
-## Senere: synkronisering med Supabase
+## Synkronisering mellom mobil og PC (Supabase)
 
-Appen er forberedt for synkronisering uten at resten av koden må skrives om.
-All lagring går gjennom `StorageAdapter` i `src/lib/storage.ts`:
+Appen fungerer fullt ut uten synk. Settes Supabase opp, kan du logge inn under
+**Innstillinger → Synkronisering** (eller på velkomstsiden på en ny enhet) og få
+de samme føringene overalt.
 
-```ts
-export interface StorageAdapter {
-  load(): Promise<AppData | null>;
-  save(data: AppData): Promise<void>;
-  clear(): Promise<void>;
-  readonly label: string;
-}
+**Slik virker det**
+
+- Dataene ligger fortsatt lokalt, så appen er like rask og virker uten nett.
+- I tillegg lagres en kopi i tabellen `budsjette_state` – én rad per bruker,
+  beskyttet av Row Level Security.
+- Appen synker når den åpnes, når du går tilbake til den, når nettet kommer
+  tilbake, hvert minutt mens den er åpen og like etter hver endring.
+- Endringer gjort på flere enheter samtidig – også uten nett – slås sammen per
+  føring (treveis sammenslåing). Ingenting overskrives i stillhet. Samme faste
+  utgift bokført på to enheter blir én føring.
+- «Slett alle data» mens du er innlogget logger deg ut og tømmer bare enheten.
+  Skyen beholdes.
+
+**Oppsett (én gang)**
+
+1. Opprett et gratis prosjekt på <https://supabase.com>.
+2. **SQL Editor → New query**: lim inn innholdet i `supabase/schema.sql` og kjør.
+3. **Authentication → Users → Add user → Create new user**: e-post og passord,
+   huk av for *Auto Confirm User*.
+4. **Authentication → Sign In / Providers**: slå av *Allow new users to sign up*,
+   så ingen andre kan lage konto.
+5. **Project Settings → API**: kopier *Project URL* og *publishable/anon key*.
+6. I GitHub-repoet: **Settings → Secrets and variables → Actions → Variables**,
+   legg til `SUPABASE_URL` og `SUPABASE_ANON_KEY`. Kjør så arbeidsflyten på nytt.
+
+Lokalt legges de samme verdiene i `.env.local` (sjekkes ikke inn):
+
+```
+VITE_SUPABASE_URL=https://xxxx.supabase.co
+VITE_SUPABASE_ANON_KEY=...
 ```
 
-For å legge på Supabase senere:
+Begge verdiene er laget for å ligge i frontend. Tilgangen styres av innlogging
+og RLS. **Service role-nøkkelen skal aldri inn i appen eller repoet.**
 
-1. Lag `SupabaseAdapter` som implementerer grensesnittet (les/skriv hele
-   `AppData`-dokumentet per bruker, eller splitt i tabeller per entitet).
-2. Send den inn i provideren:
-   `<AppStoreProvider adapter={new SupabaseAdapter(client)}>`.
-3. Behold `LocalStorageAdapter` som hurtigbuffer og skriv en liten
-   sammenslåingsregel basert på `meta.updatedAt` for konflikter.
-4. Legg nøkler i `.env`-filer som **ikke** sjekkes inn, og bruk kun den
-   offentlige `anon`-nøkkelen i frontend sammen med Row Level Security.
-
-Alle entiteter har allerede stabile ID-er og tidsstempler, som er det
-synkronisering trenger.
+Koden ligger i `src/lib/sync/` (sammenslåing og skykall) og
+`src/state/CloudSync.tsx` (når det synkes).
 
 ---
 
 ## Personvern og sikkerhet
 
-- Appen sender ingen data noe sted. Alt ligger i `localStorage` under nøkkelen
-  `budsjette.v1`.
+- Uten innlogging sender appen ingen data noe sted. Alt ligger i `localStorage`
+  under nøkkelen `budsjette.v1`. Med synk sendes dataene bare til ditt eget
+  Supabase-prosjekt.
 - Det finnes ingen API-nøkler eller hemmeligheter i frontend-koden.
 - **Legg aldri reelle økonomiske data inn i repositoriet.** `.gitignore`
   utelukker eksportfiler (`budsjette-eksport*.json`, `budsjette-transaksjoner*.csv`).

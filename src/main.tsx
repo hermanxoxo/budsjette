@@ -2,6 +2,7 @@ import { StrictMode, Component, type ErrorInfo, type ReactNode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './App';
 import { AppStoreProvider } from './state/AppStore';
+import { CloudSyncProvider } from './state/CloudSync';
 import { ToastProvider } from './ui/Toast';
 import './index.css';
 
@@ -70,9 +71,11 @@ createRoot(container).render(
   <StrictMode>
     <ErrorBoundary>
       <AppStoreProvider>
-        <ToastProvider>
-          <App />
-        </ToastProvider>
+        <CloudSyncProvider>
+          <ToastProvider>
+            <App />
+          </ToastProvider>
+        </CloudSyncProvider>
       </AppStoreProvider>
     </ErrorBoundary>
   </StrictMode>,
