@@ -1,0 +1,63 @@
+name: Bygg og publiser til GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Tillatelser som kreves for å publisere til GitHub Pages
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Én publisering om gangen. Pågående kjøringer får fullføre.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Bygg
+    runs-on: ubuntu-latest
+    steps:
+      - name: Hent koden
+        uses: actions/checkout@v4
+
+      - name: Sett opp Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Installer avhengigheter
+        run: npm ci
+
+      - name: Typesjekk
+        run: npm run typecheck
+
+      - name: Kjør tester
+        run: npm test
+
+      - name: Bygg
+        # Base path må matche repo-navnet for at GitHub Pages skal finne filene.
+        run: npm run build
+        env:
+          VITE_BASE: /${{ github.event.repository.name }}/
+
+      - name: Last opp artefakt
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    name: Publiser
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Publiser til GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

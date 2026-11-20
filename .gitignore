@@ -1,0 +1,12 @@
+node_modules
+dist
+dist-ssr
+*.local
+.DS_Store
+.vscode/*
+!.vscode/extensions.json
+coverage
+# Ekte budsjettdata skal aldri inn i repoet
+*.budsjette-backup.json
+budsjette-eksport*.json
+budsjette-transaksjoner*.csv
