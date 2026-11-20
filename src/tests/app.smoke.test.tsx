@@ -94,6 +94,9 @@ describe('appen fra ende til ende', () => {
     await user.click(await screen.findByRole('button', { name: 'Budsjett' }));
     await user.click(await screen.findByRole('button', { name: 'Rediger Mat' }));
     const sheet = await screen.findByRole('dialog', { name: 'Rediger kategori' });
+    // Arket flytter fokus inn i seg selv like etter åpning. Vent på det, ellers kan
+    // fokusflyttet stjele tastetrykk midt i skrivingen.
+    await waitFor(() => expect(document.activeElement).toBe(sheet));
 
     /* Legg til */
     await user.type(within(sheet).getByLabelText('Søk eller legg til underkategori'), 'Bunnpris Sentrum');

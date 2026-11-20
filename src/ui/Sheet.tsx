@@ -77,6 +77,8 @@ export function Sheet({
 
     // Flytt fokus inn i arket, men unngå å åpne tastaturet uoppfordret på mobil.
     const timer = setTimeout(() => {
+      // Har brukeren allerede trykket i et felt i arket, skal fokus bli der.
+      if (panelRef.current?.contains(document.activeElement)) return;
       const target =
         panelRef.current?.querySelector<HTMLElement>('[data-autofocus]') ?? panelRef.current;
       target?.focus({ preventScroll: true });
